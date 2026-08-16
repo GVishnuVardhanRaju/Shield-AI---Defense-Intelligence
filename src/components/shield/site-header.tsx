@@ -80,13 +80,13 @@ export function SiteHeader({ onOpenPalette }: { onOpenPalette: () => void }) {
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: 8 }}
-                  className="glass absolute right-0 mt-2 w-80 rounded-lg p-3"
+                  className="glass fixed top-16 left-1/2 -translate-x-1/2 sm:absolute sm:right-0 sm:left-auto sm:translate-x-0 mt-2 w-[min(20rem,calc(100vw-1rem))] max-w-[calc(100vw-1rem)] rounded-lg p-3 shadow-2xl origin-top-right z-60 max-h-[60vh] overflow-auto"
                 >
                   <p className="hud-label mb-2">Notification Center</p>
                   <ul className="space-y-2">
                     {recent.map((a) => (
                       <li key={a.id} className="rounded-md border border-border/60 p-2">
-                        <div className="flex items-center justify-between">
+                        <div className="flex items-center justify-between gap-2">
                           <span className="font-mono text-[10px] text-muted-foreground">
                             {a.id}
                           </span>
@@ -137,15 +137,19 @@ export function SiteHeader({ onOpenPalette }: { onOpenPalette: () => void }) {
               animate={{ x: 0 }}
               exit={{ x: "100%" }}
               transition={{ type: "spring", damping: 26, stiffness: 260 }}
-              className="glass fixed top-0 right-0 z-50 h-dvh w-80 max-w-[85vw] overflow-y-auto rounded-none p-5 xl:hidden"
+              className="glass fixed top-0 right-0 z-50 h-dvh w-80 max-w-[85vw] overflow-y-auto rounded-none border-l border-radar/50 bg-[#031b17]/95 p-5 shadow-[0_0_28px_rgba(28,255,179,0.12)] backdrop-blur-xl xl:hidden"
             >
-              <div className="mb-6 flex items-center justify-between">
+              <div className="mb-6 flex items-center justify-between border-b border-radar/20 pb-3">
                 <span className="hud-label text-radar">Navigation</span>
-                <button aria-label="Close menu" onClick={() => setOpen(false)}>
+                <button
+                  aria-label="Close menu"
+                  onClick={() => setOpen(false)}
+                  className="grid size-8 place-items-center rounded-md border border-radar/40 bg-radar/10 text-radar transition hover:bg-radar/15"
+                >
                   <X className="size-5" />
                 </button>
               </div>
-              <nav className="space-y-1">
+              <nav className="space-y-2">
                 {NAV_LINKS.map((l, i) => (
                   <motion.div
                     key={l.to}
@@ -157,8 +161,10 @@ export function SiteHeader({ onOpenPalette }: { onOpenPalette: () => void }) {
                       to={l.to}
                       className={({ isActive }) =>
                         cn(
-                          "block rounded-md border border-transparent px-3 py-3 text-sm font-medium text-muted-foreground",
-                          isActive && "border-radar/40 bg-radar/10 text-radar",
+                          "block rounded-md border px-3 py-3 text-sm font-medium text-foreground/85 transition-all duration-200",
+                          isActive
+                            ? "border-radar/80 bg-radar/18 text-radar shadow-[inset_0_0_0_1px_rgba(116,240,211,0.32)]"
+                            : "border-transparent bg-background/20 text-muted-foreground hover:border-radar/30 hover:bg-radar/8 hover:text-foreground",
                         )
                       }
                     >
