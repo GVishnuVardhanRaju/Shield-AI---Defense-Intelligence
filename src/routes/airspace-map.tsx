@@ -20,7 +20,9 @@ import {
   Geography,
   Line,
   Marker,
+  ZoomableGroup,
   createCoordinates,
+  createTranslateExtent,
 } from "@vnedyalk0v/react19-simple-maps";
 
 import {
@@ -44,7 +46,7 @@ import { THREAT_REGIONS } from "@/data/threatRegions";
 import {
   GLOBAL_THEATRES,
   MAJOR_CITIES,
-  WORLD_GEO_URL,
+  WORLD_GEO_DATA,
 } from "@/data/worldMapData";
 
 import type { TheatreKey } from "@/types/global-map";
@@ -325,6 +327,11 @@ export function AirspaceMap() {
 
   const mapScale = activeTheatre.scale * zoom;
 
+  const theatreCenter = toCoordinates(
+    activeTheatre.center[0],
+    activeTheatre.center[1],
+  );
+
   const detectionTotal = GLOBAL_DETECTIONS.length;
 
   const criticalCount = GLOBAL_DETECTIONS.filter(
@@ -443,6 +450,26 @@ export function AirspaceMap() {
 
                     if (theatre.key === "GLOBAL") {
                       setSelectedCountry("United States");
+                    }
+
+                    if (theatre.key === "INDIA") {
+                      setSelectedCountry("India");
+                    }
+
+                    if (theatre.key === "USA") {
+                      setSelectedCountry("United States");
+                    }
+
+                    if (theatre.key === "CHINA") {
+                      setSelectedCountry("China");
+                    }
+
+                    if (theatre.key === "AUSTRALIA") {
+                      setSelectedCountry("Australia");
+                    }
+
+                    if (theatre.key === "UNITED KINGDOM") {
+                      setSelectedCountry("United Kingdom");
                     }
                   }}
                   className={`rounded-md border px-2.5 py-1.5 text-[11px] transition-colors ${
@@ -655,99 +682,62 @@ export function AirspaceMap() {
             <div className="absolute inset-4 z-10 rounded border border-border/60 bg-black/10 backdrop-blur-sm">
 
               <ComposableMap
-                projection="geoNaturalEarth1"
-                projectionConfig={{
-                  scale: mapScale,
-                  center: toCoordinates(
-                    activeTheatre.center[0],
-                    activeTheatre.center[1],
-                  ),
-                }}
-                style={{
-                  width: "100%",
-                  height: "100%",
-                }}
-              >
+  projection="geoNaturalEarth1"
+  projectionConfig={{
+    scale: mapScale,
+    center: theatreCenter,
+  }}
+  width={800}
+  height={500}
+  style={{
+    width: "100%",
+    height: "100%",
+  }}
+>
+                <ZoomableGroup
+                  center={theatreCenter}
+                  zoom={zoom}
+                  minZoom={0.75}
+                  maxZoom={2}
+                  translateExtent={createTranslateExtent(
+                    toCoordinates(-180, -90),
+                    toCoordinates(180, 90),
+                  )}
+                >
+                  {/* ======================================================== */}
+                  {/* COUNTRIES                                                  */}
+                  {/* ======================================================== */}
 
-                {/* ======================================================== */}
-                {/* COUNTRIES                                                  */}
-                {/* ======================================================== */}
-
-                <Geographies geography={WORLD_GEO_URL}>
-                  {({ geographies }) =>
-                    geographies.map((geo) => {
-
-                      const countryName =
-                        normalizeCountryName(
-                          typeof geo.properties.name ===
-                            "string"
-                            ? geo.properties.name
-                            : undefined,
-                        );
-
-                      const isSelected =
-                        selectedCountry ===
-                        countryName;
-
-                      const isHoverTarget =
-                        hoveredCountry ===
-                        countryName;
-
-                      return (
+                  <Geographies geography={WORLD_GEO_DATA}>
+                    {({ geographies }) =>
+                      geographies.map((geo) => (
                         <Geography
                           key={geo.rsmKey}
                           geography={geo}
-                          onMouseEnter={() =>
-                            setHoveredCountry(
-                              countryName,
-                            )
-                          }
-                          onMouseLeave={() =>
-                            setHoveredCountry(
-                              null,
-                            )
-                          }
-                          onClick={() =>
-                            setSelectedCountry(
-                              countryName,
-                            )
-                          }
                           style={{
                             default: {
-                              fill: isSelected
-                                ? "#173b2f"
-                                : isHoverTarget
-                                  ? "#1c4339"
-                                  : "#0b1915",
-                              stroke: isSelected
-                                ? "#7ce7b4"
-                                : "rgba(112, 194, 158, 0.35)",
-                              strokeWidth:
-                                isSelected
-                                  ? 0.9
-                                  : 0.4,
+                              fill: "#173b2f",
+                              stroke: "#7ce7b4",
+                              strokeWidth: 0.5,
                               outline: "none",
                             },
-
                             hover: {
-                              fill: "#214d3d",
+                              fill: "#28634d",
                               stroke: "#98f0c7",
                               strokeWidth: 0.8,
                               outline: "none",
                             },
-
                             pressed: {
-                              fill: "#1f5646",
+                              fill: "#28634d",
                               stroke: "#d3ffe8",
                               strokeWidth: 1,
                               outline: "none",
                             },
                           }}
                         />
-                      );
-                    })
-                  }
-                </Geographies>
+                      ))
+                    }
+                  </Geographies>
 
                 {/* ======================================================== */}
                 {/* THREAT HEATMAP                                            */}
@@ -1255,6 +1245,7 @@ export function AirspaceMap() {
                     )}
                   </>
                 )}
+                </ZoomableGroup>
               </ComposableMap>
             </div>
 

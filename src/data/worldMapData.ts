@@ -1,6 +1,6 @@
-import worldAtlasUrl from "world-atlas/countries-110m.json?url";
+import worldAtlasData from "world-atlas/countries-110m.json";
 
-export const WORLD_GEO_URL = worldAtlasUrl;
+export const WORLD_GEO_DATA = worldAtlasData;
 
 export const GLOBAL_THEATRES = [
   { key: "GLOBAL", label: "GLOBAL", center: [0, 15] as [number, number], scale: 135 },

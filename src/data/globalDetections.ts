@@ -23,8 +23,9 @@ const LOCATION_SEEDS = [
 ] as const;
 
 export const GLOBAL_DETECTIONS: DetectionPoint[] = Array.from({ length: 100 }, (_, index) => {
-  const source = DETECTIONS[index % DETECTIONS.length];
-  const seed = LOCATION_SEEDS[index % LOCATION_SEEDS.length];
+  const source = DETECTIONS[index % DETECTIONS.length]!;
+  const seed = LOCATION_SEEDS[index % LOCATION_SEEDS.length]!;
+
   const offsetLat = ((index % 5) - 2) * 0.8;
   const offsetLon = ((index % 7) - 3) * 0.9;
 
