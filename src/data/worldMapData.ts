@@ -1,0 +1,126 @@
+import worldAtlasUrl from "world-atlas/countries-110m.json?url";
+
+export const WORLD_GEO_URL = worldAtlasUrl;
+
+export const GLOBAL_THEATRES = [
+  { key: "GLOBAL", label: "GLOBAL", center: [0, 15] as [number, number], scale: 135 },
+  { key: "INDIA", label: "INDIA", center: [78, 22] as [number, number], scale: 430 },
+  { key: "USA", label: "USA", center: [-98, 38] as [number, number], scale: 350 },
+  { key: "CHINA", label: "CHINA", center: [104, 35] as [number, number], scale: 330 },
+  { key: "AUSTRALIA", label: "AUSTRALIA", center: [133, -25] as [number, number], scale: 420 },
+  { key: "UNITED KINGDOM", label: "UNITED KINGDOM", center: [-2, 55] as [number, number], scale: 600 },
+] as const;
+
+export const COUNTRY_INTELLIGENCE = [
+  {
+    country: "India",
+    airspaceStatus: "Elevated",
+    activeDetections: 18,
+    radarCoverage: 97.2,
+    threatLevel: "MODERATE",
+    radarStations: 7,
+    protectedZones: 12,
+    lastUpdated: "12:45:32 UTC",
+  },
+  {
+    country: "United States",
+    airspaceStatus: "Heightened",
+    activeDetections: 24,
+    radarCoverage: 95.8,
+    threatLevel: "HIGH",
+    radarStations: 9,
+    protectedZones: 16,
+    lastUpdated: "12:43:10 UTC",
+  },
+  {
+    country: "China",
+    airspaceStatus: "Elevated",
+    activeDetections: 21,
+    radarCoverage: 96.6,
+    threatLevel: "MODERATE",
+    radarStations: 8,
+    protectedZones: 14,
+    lastUpdated: "12:41:54 UTC",
+  },
+  {
+    country: "Australia",
+    airspaceStatus: "Secure",
+    activeDetections: 9,
+    radarCoverage: 94.7,
+    threatLevel: "LOW",
+    radarStations: 5,
+    protectedZones: 9,
+    lastUpdated: "12:39:41 UTC",
+  },
+  {
+    country: "United Kingdom",
+    airspaceStatus: "Elevated",
+    activeDetections: 12,
+    radarCoverage: 94.2,
+    threatLevel: "MODERATE",
+    radarStations: 4,
+    protectedZones: 7,
+    lastUpdated: "12:38:08 UTC",
+  },
+  {
+    country: "France",
+    airspaceStatus: "Secure",
+    activeDetections: 10,
+    radarCoverage: 93.4,
+    threatLevel: "LOW",
+    radarStations: 5,
+    protectedZones: 8,
+    lastUpdated: "12:35:27 UTC",
+  },
+] as const;
+
+export const MAJOR_LABELS = [
+  "USA",
+  "CANADA",
+  "BRAZIL",
+  "UK",
+  "FRANCE",
+  "GERMANY",
+  "SPAIN",
+  "RUSSIA",
+  "INDIA",
+  "CHINA",
+  "JAPAN",
+  "AUSTRALIA",
+  "SOUTH AFRICA",
+  "EGYPT",
+];
+
+export const MAJOR_CITIES = [
+  { city: "Washington", latitude: 38.9072, longitude: -77.0369, region: "North America" },
+  { city: "New York", latitude: 40.7128, longitude: -74.006, region: "North America" },
+  { city: "Los Angeles", latitude: 34.0522, longitude: -118.2437, region: "North America" },
+  { city: "London", latitude: 51.5072, longitude: -0.1276, region: "Europe" },
+  { city: "Paris", latitude: 48.8566, longitude: 2.3522, region: "Europe" },
+  { city: "Berlin", latitude: 52.52, longitude: 13.405, region: "Europe" },
+  { city: "Cairo", latitude: 30.0444, longitude: 31.2357, region: "Africa" },
+  { city: "Dubai", latitude: 25.2048, longitude: 55.2708, region: "Middle East" },
+  { city: "Johannesburg", latitude: -26.2041, longitude: 28.0473, region: "Africa" },
+  { city: "New Delhi", latitude: 28.6139, longitude: 77.209, region: "Asia" },
+  { city: "Mumbai", latitude: 19.076, longitude: 72.8777, region: "Asia" },
+  { city: "Bengaluru", latitude: 12.9716, longitude: 77.5946, region: "Asia" },
+  { city: "Hyderabad", latitude: 17.385, longitude: 78.4867, region: "Asia" },
+  { city: "Beijing", latitude: 39.9042, longitude: 116.4074, region: "Asia" },
+  { city: "Shanghai", latitude: 31.2304, longitude: 121.4737, region: "Asia" },
+  { city: "Tokyo", latitude: 35.6762, longitude: 139.6503, region: "Asia" },
+  { city: "Seoul", latitude: 37.5665, longitude: 126.978, region: "Asia" },
+  { city: "Singapore", latitude: 1.3521, longitude: 103.8198, region: "Asia" },
+  { city: "Sydney", latitude: -33.8688, longitude: 151.2093, region: "Australia" },
+  { city: "Melbourne", latitude: -37.8136, longitude: 144.9631, region: "Australia" },
+  { city: "São Paulo", latitude: -23.5505, longitude: -46.6333, region: "South America" },
+] as const;
+
+export const WORLD_REGION_HOTSPOTS = [
+  { name: "North America", latitude: 39, longitude: -98, radius: 18 },
+  { name: "Europe", latitude: 48, longitude: 10, radius: 12 },
+  { name: "Middle East", latitude: 27, longitude: 45, radius: 14 },
+  { name: "India", latitude: 22, longitude: 78, radius: 16 },
+  { name: "East Asia", latitude: 36, longitude: 120, radius: 18 },
+  { name: "Southeast Asia", latitude: 2, longitude: 110, radius: 12 },
+  { name: "Australia", latitude: -25, longitude: 135, radius: 14 },
+] as const;
