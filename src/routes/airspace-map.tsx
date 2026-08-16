@@ -14,9 +14,23 @@ import {
   Waypoints,
 } from "lucide-react";
 import { useMemo, useState } from "react";
-import { ComposableMap, Geographies, Geography, Line, Marker } from "@vnedyalk0v/react19-simple-maps";
+import {
+  ComposableMap,
+  Geographies,
+  Geography,
+  Line,
+  Marker,
+  createCoordinates,
+} from "@vnedyalk0v/react19-simple-maps";
 
-import { Counter, GlassPanel, PageShell, SectionHeading, StatusDot } from "@/components/shield/primitives";
+import {
+  Counter,
+  GlassPanel,
+  PageShell,
+  SectionHeading,
+  StatusDot,
+} from "@/components/shield/primitives";
+
 import { AIRPORTS } from "@/data/airports";
 import { AI_PREDICTIONS } from "@/data/aiPredictions";
 import { COMMAND_CENTERS } from "@/data/commandCenters";
@@ -26,33 +40,102 @@ import { PROTECTED_ZONES } from "@/data/protectedZones";
 import { RADAR_STATIONS } from "@/data/radarStations";
 import { RESTRICTED_ZONES } from "@/data/restrictedZones";
 import { THREAT_REGIONS } from "@/data/threatRegions";
-import { GLOBAL_THEATRES, MAJOR_CITIES, WORLD_GEO_URL } from "@/data/worldMapData";
+
+import {
+  GLOBAL_THEATRES,
+  MAJOR_CITIES,
+  WORLD_GEO_URL,
+} from "@/data/worldMapData";
+
 import type { TheatreKey } from "@/types/global-map";
 
+/* -------------------------------------------------------------------------- */
+/* Types                                                                      */
+/* -------------------------------------------------------------------------- */
+
 const LAYER_META = [
-  { key: "borders", label: "Country Borders", icon: Compass, tone: "text-radar" },
-  { key: "radar", label: "Radar Stations", icon: RadarIcon, tone: "text-radar" },
-  { key: "detections", label: "Drone Detections", icon: Signal, tone: "text-threat" },
-  { key: "protected", label: "Protected Zones", icon: ShieldAlert, tone: "text-cyan" },
-  { key: "restricted", label: "Restricted Areas", icon: Waypoints, tone: "text-warn" },
-  { key: "paths", label: "Flight Paths", icon: Route, tone: "text-cyan" },
-  { key: "cities", label: "City Labels", icon: MapPinned, tone: "text-cyan" },
-  { key: "heatmap", label: "Threat Heatmap", icon: Signal, tone: "text-warn" },
-  { key: "predictions", label: "AI Predictions", icon: Compass, tone: "text-cyan" },
-  { key: "commandCenters", label: "Command Centers", icon: RadarIcon, tone: "text-radar" },
-  { key: "airports", label: "Airports", icon: Plane, tone: "text-cyan" },
+  {
+    key: "borders",
+    label: "Country Borders",
+    icon: Compass,
+    tone: "text-radar",
+  },
+  {
+    key: "radar",
+    label: "Radar Stations",
+    icon: RadarIcon,
+    tone: "text-radar",
+  },
+  {
+    key: "detections",
+    label: "Drone Detections",
+    icon: Signal,
+    tone: "text-threat",
+  },
+  {
+    key: "protected",
+    label: "Protected Zones",
+    icon: ShieldAlert,
+    tone: "text-cyan",
+  },
+  {
+    key: "restricted",
+    label: "Restricted Areas",
+    icon: Waypoints,
+    tone: "text-warn",
+  },
+  {
+    key: "paths",
+    label: "Flight Paths",
+    icon: Route,
+    tone: "text-cyan",
+  },
+  {
+    key: "cities",
+    label: "City Labels",
+    icon: MapPinned,
+    tone: "text-cyan",
+  },
+  {
+    key: "heatmap",
+    label: "Threat Heatmap",
+    icon: Signal,
+    tone: "text-warn",
+  },
+  {
+    key: "predictions",
+    label: "AI Predictions",
+    icon: Compass,
+    tone: "text-cyan",
+  },
+  {
+    key: "commandCenters",
+    label: "Command Centers",
+    icon: RadarIcon,
+    tone: "text-radar",
+  },
+  {
+    key: "airports",
+    label: "Airports",
+    icon: Plane,
+    tone: "text-cyan",
+  },
 ] as const;
 
-const ACTIVE_REGIONS = [
-  { name: "India", detections: 18 },
-  { name: "East Asia", detections: 26 },
-  { name: "Europe", detections: 21 },
-  { name: "Middle East", detections: 17 },
-  { name: "North America", detections: 23 },
-] as const;
+type LayerKey = (typeof LAYER_META)[number]["key"];
+
+type LayerState = Record<LayerKey, boolean>;
+
+/* -------------------------------------------------------------------------- */
+/* Helpers                                                                    */
+/* -------------------------------------------------------------------------- */
+
+const toCoordinates = (longitude: number, latitude: number) =>
+  createCoordinates(longitude, latitude);
 
 const normalizeCountryName = (value: string | undefined) => {
   const raw = value ?? "";
+
   const map: Record<string, string> = {
     "United States of America": "United States",
     "United States": "United States",
@@ -62,19 +145,59 @@ const normalizeCountryName = (value: string | undefined) => {
     Russia: "Russia",
     "United Kingdom": "United Kingdom",
     "United Arab Emirates": "United Arab Emirates",
-    "Czechia": "Czech Republic",
-    "Macedonia": "North Macedonia",
+    Czechia: "Czech Republic",
+    Macedonia: "North Macedonia",
     "Democratic Republic of the Congo": "Congo",
   };
+
   return map[raw] ?? raw;
 };
 
+const getPathStroke = (color: unknown) => {
+  const value = String(color);
+
+  if (value === "red") {
+    return "#ff6e5f";
+  }
+
+  if (value === "orange") {
+    return "#ffb14a";
+  }
+
+  return "#74f0d3";
+};
+
+const getPathStatus = (status: unknown) => String(status);
+
+/* -------------------------------------------------------------------------- */
+/* Regions                                                                    */
+/* -------------------------------------------------------------------------- */
+
+const ACTIVE_REGIONS = [
+  { name: "India", detections: 18 },
+  { name: "East Asia", detections: 26 },
+  { name: "Europe", detections: 21 },
+  { name: "Middle East", detections: 17 },
+  { name: "North America", detections: 23 },
+] as const;
+
+/* -------------------------------------------------------------------------- */
+/* Component                                                                  */
+/* -------------------------------------------------------------------------- */
+
 export function AirspaceMap() {
-  const [selectedTheatre, setSelectedTheatre] = useState<TheatreKey>("GLOBAL");
-  const [selectedCountry, setSelectedCountry] = useState<string>("United States");
-  const [hoveredCountry, setHoveredCountry] = useState<string | null>(null);
+  const [selectedTheatre, setSelectedTheatre] =
+    useState<TheatreKey>("GLOBAL");
+
+  const [selectedCountry, setSelectedCountry] =
+    useState<string>("United States");
+
+  const [hoveredCountry, setHoveredCountry] =
+    useState<string | null>(null);
+
   const [zoom, setZoom] = useState(1);
-  const [layers, setLayers] = useState<Record<string, boolean>>({
+
+  const [layers, setLayers] = useState<LayerState>({
     borders: true,
     radar: true,
     detections: true,
@@ -88,10 +211,21 @@ export function AirspaceMap() {
     airports: true,
   });
 
+  /* ------------------------------------------------------------------------ */
+  /* Theatre                                                                   */
+  /* ------------------------------------------------------------------------ */
+
   const activeTheatre = useMemo(
-    () => GLOBAL_THEATRES.find((t) => t.key === selectedTheatre) ?? GLOBAL_THEATRES[0],
+    () =>
+      GLOBAL_THEATRES.find(
+        (theatre) => theatre.key === selectedTheatre,
+      ) ?? GLOBAL_THEATRES[0],
     [selectedTheatre],
   );
+
+  /* ------------------------------------------------------------------------ */
+  /* Country metrics                                                           */
+  /* ------------------------------------------------------------------------ */
 
   const countryMetrics = useMemo(
     () =>
@@ -162,32 +296,51 @@ export function AirspaceMap() {
     [],
   );
 
-  const selectedCountryMetrics = countryMetrics.get(selectedCountry) ?? {
-    country: selectedCountry,
-    airspaceStatus: "Secure",
-    activeDetections: 9,
-    radarCoverage: 94.1,
-    threatLevel: "LOW",
-    radarStations: 4,
-    protectedZones: 8,
-    lastUpdated: "12:30:04 UTC",
-  };
+  const selectedCountryMetrics =
+    countryMetrics.get(selectedCountry) ?? {
+      country: selectedCountry,
+      airspaceStatus: "Secure",
+      activeDetections: 9,
+      radarCoverage: 94.1,
+      threatLevel: "LOW",
+      radarStations: 4,
+      protectedZones: 8,
+      lastUpdated: "12:30:04 UTC",
+    };
 
-  const hoveredCountryMetrics = hoveredCountry ? countryMetrics.get(hoveredCountry) : null;
+  /* ------------------------------------------------------------------------ */
+  /* Layer controls                                                            */
+  /* ------------------------------------------------------------------------ */
 
-  const toggleLayer = (key: string) =>
+  const toggleLayer = (key: LayerKey) => {
     setLayers((current) => ({
       ...current,
       [key]: !current[key],
     }));
+  };
+
+  /* ------------------------------------------------------------------------ */
+  /* Statistics                                                                */
+  /* ------------------------------------------------------------------------ */
 
   const mapScale = activeTheatre.scale * zoom;
+
   const detectionTotal = GLOBAL_DETECTIONS.length;
-  const criticalCount = GLOBAL_DETECTIONS.filter((d) => d.threatLevel === "CRITICAL").length;
+
+  const criticalCount = GLOBAL_DETECTIONS.filter(
+    (detection) => detection.threatLevel === "CRITICAL",
+  ).length;
+
   const radarTotal = RADAR_STATIONS.length;
+
   const protectedTotal = PROTECTED_ZONES.length;
-  const restrictedTotal = 50;
+
   const coverage = 96.4;
+
+  /* ------------------------------------------------------------------------ */
+  /* Cities                                                                    */
+  /* ------------------------------------------------------------------------ */
+
   const importantCityLabels = new Set([
     "Washington",
     "New York",
@@ -211,15 +364,52 @@ export function AirspaceMap() {
     "Melbourne",
     "São Paulo",
   ]);
+
   const visibleMajorCities = MAJOR_CITIES.filter((city) => {
-    if (selectedTheatre === "GLOBAL") return importantCityLabels.has(city.city);
-    if (selectedTheatre === "INDIA") return ["New Delhi", "Mumbai", "Bengaluru", "Hyderabad"].includes(city.city);
-    if (selectedTheatre === "USA") return ["Washington", "New York", "Los Angeles"].includes(city.city);
-    if (selectedTheatre === "CHINA") return ["Beijing", "Shanghai", "Tokyo", "Seoul"].includes(city.city);
-    if (selectedTheatre === "AUSTRALIA") return ["Sydney", "Melbourne"].includes(city.city);
-    if (selectedTheatre === "UNITED KINGDOM") return ["London", "Paris", "Berlin"].includes(city.city);
+    if (selectedTheatre === "GLOBAL") {
+      return importantCityLabels.has(city.city);
+    }
+
+    if (selectedTheatre === "INDIA") {
+      return [
+        "New Delhi",
+        "Mumbai",
+        "Bengaluru",
+        "Hyderabad",
+      ].includes(city.city);
+    }
+
+    if (selectedTheatre === "USA") {
+      return [
+        "Washington",
+        "New York",
+        "Los Angeles",
+      ].includes(city.city);
+    }
+
+    if (selectedTheatre === "CHINA") {
+      return [
+        "Beijing",
+        "Shanghai",
+        "Tokyo",
+        "Seoul",
+      ].includes(city.city);
+    }
+
+    if (selectedTheatre === "AUSTRALIA") {
+      return ["Sydney", "Melbourne"].includes(city.city);
+    }
+
+    if (selectedTheatre === "UNITED KINGDOM") {
+      return ["London", "Paris", "Berlin"].includes(city.city);
+    }
+
     return importantCityLabels.has(city.city);
   });
+
+  /* ------------------------------------------------------------------------ */
+  /* Render                                                                    */
+  /* ------------------------------------------------------------------------ */
 
   return (
     <PageShell>
@@ -230,17 +420,30 @@ export function AirspaceMap() {
       />
 
       <div className="mb-4 grid gap-4 xl:grid-cols-[1.05fr_2.7fr_1fr]">
+
+        {/* ------------------------------------------------------------------ */}
+        {/* LEFT PANEL                                                          */}
+        {/* ------------------------------------------------------------------ */}
+
         <GlassPanel hover={false} className="space-y-4">
+
           <div>
-            <p className="hud-label mb-3">Theatre</p>
+            <p className="hud-label mb-3">
+              Theatre
+            </p>
+
             <div className="flex flex-wrap gap-2">
               {GLOBAL_THEATRES.map((theatre) => (
                 <button
                   key={theatre.key}
+                  type="button"
                   onClick={() => {
                     setSelectedTheatre(theatre.key);
                     setZoom(1);
-                    if (theatre.key === "GLOBAL") setSelectedCountry("United States");
+
+                    if (theatre.key === "GLOBAL") {
+                      setSelectedCountry("United States");
+                    }
                   }}
                   className={`rounded-md border px-2.5 py-1.5 text-[11px] transition-colors ${
                     selectedTheatre === theatre.key
@@ -254,85 +457,161 @@ export function AirspaceMap() {
             </div>
           </div>
 
+          {/* Layers */}
+
           <div>
-            <p className="hud-label mb-3">Layers</p>
+            <p className="hud-label mb-3">
+              Layers
+            </p>
+
             <div className="space-y-2">
-              {LAYER_META.map(({ key, label, icon: Icon, tone }) => (
-                <button
-                  key={key}
-                  onClick={() => toggleLayer(key)}
-                  className={`flex w-full items-center justify-between rounded-md border px-3 py-2 text-xs transition-colors ${
-                    layers[key] ? "border-radar/40 bg-radar/10 text-foreground" : "border-border opacity-50"
-                  }`}
-                >
-                  <span className="flex items-center gap-2">
-                    <Icon className={`size-3.5 ${tone}`} />
-                    {label}
-                  </span>
-                  <span className="font-mono text-[10px]">{layers[key] ? "ON" : "OFF"}</span>
-                </button>
-              ))}
+              {LAYER_META.map(
+                ({ key, label, icon: Icon, tone }) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => toggleLayer(key)}
+                    className={`flex w-full items-center justify-between rounded-md border px-3 py-2 text-xs transition-colors ${
+                      layers[key]
+                        ? "border-radar/40 bg-radar/10 text-foreground"
+                        : "border-border opacity-50"
+                    }`}
+                  >
+                    <span className="flex items-center gap-2">
+                      <Icon
+                        className={`size-3.5 ${tone}`}
+                      />
+                      {label}
+                    </span>
+
+                    <span className="font-mono text-[10px]">
+                      {layers[key] ? "ON" : "OFF"}
+                    </span>
+                  </button>
+                ),
+              )}
             </div>
           </div>
 
+          {/* Global Status */}
+
           <div>
-            <p className="hud-label mb-3">Global Status</p>
+            <p className="hud-label mb-3">
+              Global Status
+            </p>
+
             <dl className="space-y-2 text-xs">
+
               <div className="flex items-center justify-between gap-3">
-                <dt className="text-muted-foreground">Active detections</dt>
+                <dt className="text-muted-foreground">
+                  Active detections
+                </dt>
+
                 <dd className="font-mono text-radar">
                   <Counter value={detectionTotal} />
                 </dd>
               </div>
+
               <div className="flex items-center justify-between gap-3">
-                <dt className="text-muted-foreground">Critical threats</dt>
+                <dt className="text-muted-foreground">
+                  Critical threats
+                </dt>
+
                 <dd className="font-mono text-threat">
                   <Counter value={criticalCount} />
                 </dd>
               </div>
+
               <div className="flex items-center justify-between gap-3">
-                <dt className="text-muted-foreground">Radar stations</dt>
+                <dt className="text-muted-foreground">
+                  Radar stations
+                </dt>
+
                 <dd className="font-mono text-cyan">
                   <Counter value={radarTotal} />
                 </dd>
               </div>
+
               <div className="flex items-center justify-between gap-3">
-                <dt className="text-muted-foreground">Protected zones</dt>
+                <dt className="text-muted-foreground">
+                  Protected zones
+                </dt>
+
                 <dd className="font-mono text-warn">
                   <Counter value={protectedTotal} />
                 </dd>
               </div>
+
               <div className="flex items-center justify-between gap-3">
-                <dt className="text-muted-foreground">Global coverage</dt>
-                <dd className="font-mono text-radar">{coverage.toFixed(1)}%</dd>
+                <dt className="text-muted-foreground">
+                  Global coverage
+                </dt>
+
+                <dd className="font-mono text-radar">
+                  {coverage.toFixed(1)}%
+                </dd>
               </div>
+
             </dl>
           </div>
         </GlassPanel>
 
-        <GlassPanel hover={false} className="overflow-hidden p-0">
+        {/* ------------------------------------------------------------------ */}
+        {/* MAP                                                                 */}
+        {/* ------------------------------------------------------------------ */}
+
+        <GlassPanel
+          hover={false}
+          className="overflow-hidden p-0"
+        >
           <div className="flex items-center justify-between border-b border-border px-4 py-3">
+
             <div className="flex items-center gap-2">
               <StatusDot />
-              <span className="hud-label">Global airspace surveillance</span>
+
+              <span className="hud-label">
+                Global airspace surveillance
+              </span>
             </div>
+
             <div className="flex items-center gap-2">
+
               <button
                 type="button"
-                onClick={() => setZoom((value) => Math.max(0.75, Number((value - 0.1).toFixed(2))))}
+                onClick={() =>
+                  setZoom((value) =>
+                    Math.max(
+                      0.75,
+                      Number(
+                        (value - 0.1).toFixed(2),
+                      ),
+                    ),
+                  )
+                }
                 className="rounded border border-border bg-background/40 p-1.5 text-muted-foreground transition hover:text-foreground"
                 aria-label="Zoom out"
               >
                 <Minus className="size-3.5" />
               </button>
+
               <button
                 type="button"
-                onClick={() => setZoom((value) => Math.min(1.8, Number((value + 0.1).toFixed(2))))}
+                onClick={() =>
+                  setZoom((value) =>
+                    Math.min(
+                      1.8,
+                      Number(
+                        (value + 0.1).toFixed(2),
+                      ),
+                    ),
+                  )
+                }
                 className="rounded border border-border bg-background/40 p-1.5 text-muted-foreground transition hover:text-foreground"
                 aria-label="Zoom in"
               >
                 <Plus className="size-3.5" />
               </button>
+
               <button
                 type="button"
                 onClick={() => {
@@ -344,10 +623,14 @@ export function AirspaceMap() {
               >
                 Recenter
               </button>
+
             </div>
           </div>
 
           <div className="relative h-[620px] overflow-hidden bg-[#020b09] sm:h-[700px]">
+
+            {/* Grid */}
+
             <div
               className="absolute inset-0 opacity-70"
               style={{
@@ -356,6 +639,9 @@ export function AirspaceMap() {
                 backgroundSize: "40px 40px",
               }}
             />
+
+            {/* Scanline */}
+
             <div
               className="animate-scanline pointer-events-none absolute inset-x-0 h-24"
               style={{
@@ -364,41 +650,92 @@ export function AirspaceMap() {
               }}
             />
 
+            {/* Map container */}
+
             <div className="absolute inset-4 z-10 rounded border border-border/60 bg-black/10 backdrop-blur-sm">
+
               <ComposableMap
                 projection="geoNaturalEarth1"
-                projectionConfig={{ scale: mapScale, center: activeTheatre.center }}
-                style={{ width: "100%", height: "100%" }}
+                projectionConfig={{
+                  scale: mapScale,
+                  center: toCoordinates(
+                    activeTheatre.center[0],
+                    activeTheatre.center[1],
+                  ),
+                }}
+                style={{
+                  width: "100%",
+                  height: "100%",
+                }}
               >
+
+                {/* ======================================================== */}
+                {/* COUNTRIES                                                  */}
+                {/* ======================================================== */}
+
                 <Geographies geography={WORLD_GEO_URL}>
                   {({ geographies }) =>
                     geographies.map((geo) => {
-                      const countryName = normalizeCountryName(
-                        typeof geo.properties.name === "string" ? geo.properties.name : undefined,
-                      );
-                      const isSelected = selectedCountry === countryName;
-                      const isHoverTarget = hoveredCountry === countryName;
+
+                      const countryName =
+                        normalizeCountryName(
+                          typeof geo.properties.name ===
+                            "string"
+                            ? geo.properties.name
+                            : undefined,
+                        );
+
+                      const isSelected =
+                        selectedCountry ===
+                        countryName;
+
+                      const isHoverTarget =
+                        hoveredCountry ===
+                        countryName;
 
                       return (
                         <Geography
                           key={geo.rsmKey}
                           geography={geo}
-                          onMouseEnter={() => setHoveredCountry(countryName)}
-                          onMouseLeave={() => setHoveredCountry(null)}
-                          onClick={() => setSelectedCountry(countryName)}
+                          onMouseEnter={() =>
+                            setHoveredCountry(
+                              countryName,
+                            )
+                          }
+                          onMouseLeave={() =>
+                            setHoveredCountry(
+                              null,
+                            )
+                          }
+                          onClick={() =>
+                            setSelectedCountry(
+                              countryName,
+                            )
+                          }
                           style={{
                             default: {
-                              fill: isSelected ? "#173b2f" : isHoverTarget ? "#1c4339" : "#0b1915",
-                              stroke: isSelected ? "#7ce7b4" : "rgba(112, 194, 158, 0.35)",
-                              strokeWidth: isSelected ? 0.9 : 0.4,
+                              fill: isSelected
+                                ? "#173b2f"
+                                : isHoverTarget
+                                  ? "#1c4339"
+                                  : "#0b1915",
+                              stroke: isSelected
+                                ? "#7ce7b4"
+                                : "rgba(112, 194, 158, 0.35)",
+                              strokeWidth:
+                                isSelected
+                                  ? 0.9
+                                  : 0.4,
                               outline: "none",
                             },
+
                             hover: {
                               fill: "#214d3d",
                               stroke: "#98f0c7",
                               strokeWidth: 0.8,
                               outline: "none",
                             },
+
                             pressed: {
                               fill: "#1f5646",
                               stroke: "#d3ffe8",
@@ -412,8 +749,13 @@ export function AirspaceMap() {
                   }
                 </Geographies>
 
+                {/* ======================================================== */}
+                {/* THREAT HEATMAP                                            */}
+                {/* ======================================================== */}
+
                 {layers.heatmap &&
                   THREAT_REGIONS.map((region) => {
+
                     const fill =
                       region.level === "CRITICAL"
                         ? "rgba(255, 88, 88, 0.18)"
@@ -422,37 +764,107 @@ export function AirspaceMap() {
                           : region.level === "MODERATE"
                             ? "rgba(255, 214, 102, 0.12)"
                             : "rgba(120, 240, 182, 0.10)";
+
                     return (
-                      <Marker key={region.id} coordinates={[region.longitude, region.latitude]}>
-                        <circle r={region.radius * 2.1} fill={fill} stroke="rgba(255,255,255,0.15)" strokeWidth={0.6} />
+                      <Marker
+                        key={region.id}
+                        coordinates={toCoordinates(
+                          region.longitude,
+                          region.latitude,
+                        )}
+                      >
+                        <circle
+                          r={region.radius * 2.1}
+                          fill={fill}
+                          stroke="rgba(255,255,255,0.15)"
+                          strokeWidth={0.6}
+                        />
                       </Marker>
                     );
                   })}
 
+                {/* ======================================================== */}
+                {/* AI PREDICTIONS                                             */}
+                {/* ======================================================== */}
+
                 {layers.predictions &&
-                  AI_PREDICTIONS.map((prediction) => (
-                    <Marker key={prediction.id} coordinates={[prediction.longitude, prediction.latitude]}>
-                      <circle r={prediction.radius * 2.2} fill="rgba(127, 227, 255, 0.08)" stroke="rgba(127, 227, 255, 0.55)" strokeWidth={0.7} strokeDasharray="5 7" />
-                    </Marker>
-                  ))}
+                  AI_PREDICTIONS.map(
+                    (prediction) => (
+                      <Marker
+                        key={prediction.id}
+                        coordinates={toCoordinates(
+                          prediction.longitude,
+                          prediction.latitude,
+                        )}
+                      >
+                        <circle
+                          r={prediction.radius * 2.2}
+                          fill="rgba(127, 227, 255, 0.08)"
+                          stroke="rgba(127, 227, 255, 0.55)"
+                          strokeWidth={0.7}
+                          strokeDasharray="5 7"
+                        />
+                      </Marker>
+                    ),
+                  )}
+
+                {/* ======================================================== */}
+                {/* FLIGHT PATHS                                               */}
+                {/* ======================================================== */}
 
                 {layers.paths &&
-                  FLIGHT_PATHS.map((path) => (
-                    <Line
-                      key={path.id}
-                      from={[path.from.longitude, path.from.latitude]}
-                      to={[path.to.longitude, path.to.latitude]}
-                      stroke={path.color === "red" ? "#ff6e5f" : path.color === "orange" ? "#ffb14a" : "#74f0d3"}
-                      strokeWidth={path.status === "UNAUTHORIZED" ? 1.5 : 1.1}
-                      strokeLinecap="round"
-                      strokeDasharray={path.status === "UNAUTHORIZED" ? "2 6" : path.status === "SUSPICIOUS" ? "6 5" : undefined}
-                      opacity={0.9}
-                    />
-                  ))}
+                  FLIGHT_PATHS.map((path) => {
+
+                    const status =
+                      getPathStatus(path.status);
+
+                    return (
+                      <Line
+                        key={path.id}
+                        from={toCoordinates(
+                          path.from.longitude,
+                          path.from.latitude,
+                        )}
+                        to={toCoordinates(
+                          path.to.longitude,
+                          path.to.latitude,
+                        )}
+                        stroke={getPathStroke(
+                          path.color,
+                        )}
+                        strokeWidth={
+                          status === "UNAUTHORIZED"
+                            ? 1.5
+                            : 1.1
+                        }
+                        strokeLinecap="round"
+                        strokeDasharray={
+                          status ===
+                          "UNAUTHORIZED"
+                            ? "2 6"
+                            : status ===
+                                "SUSPICIOUS"
+                              ? "6 5"
+                              : undefined
+                        }
+                        opacity={0.9}
+                      />
+                    );
+                  })}
+
+                {/* ======================================================== */}
+                {/* COMMAND CENTERS                                           */}
+                {/* ======================================================== */}
 
                 {layers.commandCenters &&
                   COMMAND_CENTERS.map((center) => (
-                    <Marker key={center.id} coordinates={[center.longitude, center.latitude]}>
+                    <Marker
+                      key={center.id}
+                      coordinates={toCoordinates(
+                        center.longitude,
+                        center.latitude,
+                      )}
+                    >
                       <g>
                         <polygon
                           points="0,-8 8,0 0,8 -8,0"
@@ -460,276 +872,799 @@ export function AirspaceMap() {
                           stroke="rgba(116, 240, 211, 0.85)"
                           strokeWidth={1.1}
                         />
-                        <circle r={2.5} fill="#dffef5" />
+
+                        <circle
+                          r={2.5}
+                          fill="#dffef5"
+                        />
                       </g>
                     </Marker>
                   ))}
+
+                {/* ======================================================== */}
+                {/* AIRPORTS                                                   */}
+                {/* ======================================================== */}
 
                 {layers.airports &&
                   AIRPORTS.map((airport) => (
-                    <Marker key={airport.id} coordinates={[airport.longitude, airport.latitude]}>
+                    <Marker
+                      key={airport.id}
+                      coordinates={toCoordinates(
+                        airport.longitude,
+                        airport.latitude,
+                      )}
+                    >
                       <g>
-                        <circle r={4.3} fill="rgba(245, 179, 84, 0.18)" stroke="rgba(245, 179, 84, 0.75)" strokeWidth={0.8} />
-                        <circle r={1.8} fill="#ffcb72" />
+                        <circle
+                          r={4.3}
+                          fill="rgba(245, 179, 84, 0.18)"
+                          stroke="rgba(245, 179, 84, 0.75)"
+                          strokeWidth={0.8}
+                        />
+
+                        <circle
+                          r={1.8}
+                          fill="#ffcb72"
+                        />
                       </g>
                     </Marker>
                   ))}
+
+                {/* ======================================================== */}
+                {/* PROTECTED ZONES                                            */}
+                {/* ======================================================== */}
 
                 {layers.protected &&
                   PROTECTED_ZONES.map((zone) => (
-                    <Marker key={zone.id} coordinates={[zone.longitude, zone.latitude]}>
-                      <circle r={Math.max(5, zone.radiusKm / 18)} fill="rgba(75, 214, 255, 0.12)" opacity={0.6} />
-                      <circle r={3.2} fill="rgba(87, 216, 255, 0.8)" stroke="rgba(255,255,255,0.35)" strokeWidth={0.5} />
+                    <Marker
+                      key={zone.id}
+                      coordinates={toCoordinates(
+                        zone.longitude,
+                        zone.latitude,
+                      )}
+                    >
+                      <circle
+                        r={Math.max(
+                          5,
+                          zone.radiusKm / 18,
+                        )}
+                        fill="rgba(75, 214, 255, 0.12)"
+                        opacity={0.6}
+                      />
+
+                      <circle
+                        r={3.2}
+                        fill="rgba(87, 216, 255, 0.8)"
+                        stroke="rgba(255,255,255,0.35)"
+                        strokeWidth={0.5}
+                      />
                     </Marker>
                   ))}
+
+                {/* ======================================================== */}
+                {/* RESTRICTED ZONES                                           */}
+                {/* ======================================================== */}
 
                 {layers.restricted &&
-                  RESTRICTED_ZONES.map((zone, index) => (
-                    <Marker key={`restricted-${zone.id}`} coordinates={[zone.longitude + index * 0.05, zone.latitude + index * 0.04]}>
-                      <circle r={zone.radiusKm / 8} fill="rgba(255, 98, 83, 0.08)" stroke={zone.threatLevel === "RESTRICTED" ? "rgba(255, 98, 83, 0.6)" : "rgba(255, 177, 74, 0.5)"} strokeWidth={0.9} strokeDasharray="4 7" />
-                    </Marker>
-                  ))}
+                  RESTRICTED_ZONES.map(
+                    (zone, index) => (
+                      <Marker
+                        key={`restricted-${zone.id}`}
+                        coordinates={toCoordinates(
+                          zone.longitude +
+                            index * 0.05,
+                          zone.latitude +
+                            index * 0.04,
+                        )}
+                      >
+                        <circle
+                          r={zone.radiusKm / 8}
+                          fill="rgba(255, 98, 83, 0.08)"
+                          stroke={
+                            zone.threatLevel ===
+                            "RESTRICTED"
+                              ? "rgba(255, 98, 83, 0.6)"
+                              : "rgba(255, 177, 74, 0.5)"
+                          }
+                          strokeWidth={0.9}
+                          strokeDasharray="4 7"
+                        />
+                      </Marker>
+                    ),
+                  )}
+
+                {/* ======================================================== */}
+                {/* RADAR STATIONS                                             */}
+                {/* ======================================================== */}
 
                 {layers.radar &&
-                  RADAR_STATIONS.map((station, index) => (
-                    <Marker key={station.id} coordinates={[station.longitude, station.latitude]}>
-                      <g style={{ animationDelay: `${index * 120}ms` }}>
-                        <circle
-                          r={Math.max(16, station.coverageRadius / 120)}
-                          fill="rgba(116, 240, 211, 0.09)"
-                          stroke="rgba(116, 240, 211, 0.35)"
-                          strokeWidth={0.8}
-                          strokeDasharray="3 5"
-                        />
-                        <circle
-                          r={Math.max(10, station.coverageRadius / 180)}
-                          fill="rgba(116, 240, 211, 0.13)"
-                          stroke="rgba(116, 240, 211, 0.65)"
-                          strokeWidth={0.7}
-                        />
-                        <circle
-                          r={Math.max(7, station.signalStrength / 12)}
-                          fill="rgba(116, 240, 211, 0.18)"
-                          stroke="rgba(116, 240, 211, 0.9)"
-                          strokeWidth={1.5}
-                          className="animate-ping-ring"
-                          style={{ animationDelay: `${index * 0.2}s` }}
-                        />
-                        <circle r={4.2} fill="#b9ffe9" stroke="#dffef5" strokeWidth={0.8} />
-                        <circle r={1.8} fill="#ffffff" />
-                      </g>
-                    </Marker>
-                  ))}
+                  RADAR_STATIONS.map(
+                    (station, index) => (
+                      <Marker
+                        key={station.id}
+                        coordinates={toCoordinates(
+                          station.longitude,
+                          station.latitude,
+                        )}
+                      >
+                        <g
+                          style={{
+                            animationDelay: `${index * 120}ms`,
+                          }}
+                        >
+                          <circle
+                            r={Math.max(
+                              16,
+                              station.coverageRadius /
+                                120,
+                            )}
+                            fill="rgba(116, 240, 211, 0.09)"
+                            stroke="rgba(116, 240, 211, 0.35)"
+                            strokeWidth={0.8}
+                            strokeDasharray="3 5"
+                          />
+
+                          <circle
+                            r={Math.max(
+                              10,
+                              station.coverageRadius /
+                                180,
+                            )}
+                            fill="rgba(116, 240, 211, 0.13)"
+                            stroke="rgba(116, 240, 211, 0.65)"
+                            strokeWidth={0.7}
+                          />
+
+                          <circle
+                            r={Math.max(
+                              7,
+                              station.signalStrength /
+                                12,
+                            )}
+                            fill="rgba(116, 240, 211, 0.18)"
+                            stroke="rgba(116, 240, 211, 0.9)"
+                            strokeWidth={1.5}
+                            className="animate-ping-ring"
+                            style={{
+                              animationDelay: `${index * 0.2}s`,
+                            }}
+                          />
+
+                          <circle
+                            r={4.2}
+                            fill="#b9ffe9"
+                            stroke="#dffef5"
+                            strokeWidth={0.8}
+                          />
+
+                          <circle
+                            r={1.8}
+                            fill="#ffffff"
+                          />
+                        </g>
+                      </Marker>
+                    ),
+                  )}
+
+                {/* ======================================================== */}
+                {/* DRONE DETECTIONS                                           */}
+                {/* ======================================================== */}
 
                 {layers.detections &&
-                  GLOBAL_DETECTIONS.slice(0, 80).map((detection) => {
+                  GLOBAL_DETECTIONS.slice(
+                    0,
+                    80,
+                  ).map((detection) => {
+
                     const color =
-                      detection.threatLevel === "CRITICAL"
+                      detection.threatLevel ===
+                      "CRITICAL"
                         ? "#ff5a5a"
-                        : detection.threatLevel === "HIGH"
+                        : detection.threatLevel ===
+                            "HIGH"
                           ? "#ffb14a"
-                          : detection.threatLevel === "MODERATE"
+                          : detection.threatLevel ===
+                              "MODERATE"
                             ? "#5fe7ff"
                             : "#78f0b6";
 
                     return (
-                      <Marker key={detection.id} coordinates={[detection.longitude, detection.latitude]}>
+                      <Marker
+                        key={detection.id}
+                        coordinates={toCoordinates(
+                          detection.longitude,
+                          detection.latitude,
+                        )}
+                      >
                         <g>
-                          <circle r={detection.threatLevel === "CRITICAL" ? 6.4 : 4.2} fill={color} opacity={0.9} />
-                          {detection.threatLevel === "CRITICAL" && (
-                            <circle r={12} fill="rgba(255, 90, 90, 0.15)" stroke="rgba(255, 90, 90, 0.7)" strokeWidth={0.7} />
+                          <circle
+                            r={
+                              detection.threatLevel ===
+                              "CRITICAL"
+                                ? 6.4
+                                : 4.2
+                            }
+                            fill={color}
+                            opacity={0.9}
+                          />
+
+                          {detection.threatLevel ===
+                            "CRITICAL" && (
+                            <circle
+                              r={12}
+                              fill="rgba(255, 90, 90, 0.15)"
+                              stroke="rgba(255, 90, 90, 0.7)"
+                              strokeWidth={0.7}
+                            />
                           )}
                         </g>
                       </Marker>
                     );
                   })}
 
+                {/* ======================================================== */}
+                {/* CITY LABELS                                                */}
+                {/* ======================================================== */}
+
                 {layers.cities && (
                   <>
-                    {visibleMajorCities.map((city) => (
-                      <Marker key={`${city.city}-${city.latitude}`} coordinates={[city.longitude, city.latitude]}>
-                        <g>
-                          <circle r={1.5} fill="#d3fff2" opacity={0.9} />
-                          <circle r={5} fill="rgba(116, 240, 211, 0.08)" />
-                          <text
-                            textAnchor="middle"
-                            y={-10}
-                            fill="rgba(211,255,242,0.82)"
-                            fontSize={Math.max(8, Math.min(11, 8 + zoom * 2))}
-                            fontFamily="JetBrains Mono, monospace"
-                            letterSpacing="0.08em"
-                          >
-                            {city.city}
-                          </text>
-                        </g>
-                      </Marker>
-                    ))}
+                    {visibleMajorCities.map(
+                      (city) => (
+                        <Marker
+                          key={`${city.city}-${city.latitude}`}
+                          coordinates={toCoordinates(
+                            city.longitude,
+                            city.latitude,
+                          )}
+                        >
+                          <g>
+                            <circle
+                              r={1.5}
+                              fill="#d3fff2"
+                              opacity={0.9}
+                            />
+
+                            <circle
+                              r={5}
+                              fill="rgba(116, 240, 211, 0.08)"
+                            />
+
+                            <text
+                              textAnchor="middle"
+                              y={-10}
+                              fill="rgba(211,255,242,0.82)"
+                              fontSize={Math.max(
+                                8,
+                                Math.min(
+                                  11,
+                                  8 + zoom * 2,
+                                ),
+                              )}
+                              fontFamily="JetBrains Mono, monospace"
+                              letterSpacing="0.08em"
+                            >
+                              {city.city}
+                            </text>
+                          </g>
+                        </Marker>
+                      ),
+                    )}
+
+                    {/* Country labels */}
 
                     {[
-                      { label: "USA", coordinates: [-98, 38] },
-                      { label: "CANADA", coordinates: [-95, 60] },
-                      { label: "BRAZIL", coordinates: [-52, -10] },
-                      { label: "UK", coordinates: [-2, 54] },
-                      { label: "FRANCE", coordinates: [2, 46] },
-                      { label: "GERMANY", coordinates: [10, 51] },
-                      { label: "SPAIN", coordinates: [-4, 40] },
-                      { label: "RUSSIA", coordinates: [85, 61] },
-                      { label: "INDIA", coordinates: [78, 22] },
-                      { label: "CHINA", coordinates: [104, 35] },
-                      { label: "JAPAN", coordinates: [138, 36] },
-                      { label: "AUSTRALIA", coordinates: [133, -25] },
-                      { label: "SOUTH AFRICA", coordinates: [24, -30] },
-                      { label: "EGYPT", coordinates: [30, 27] },
-                    ].map(({ label, coordinates }) => (
-                      <Marker key={label} coordinates={coordinates as [number, number]}>
-                        <text
-                          textAnchor="middle"
-                          y={-8}
-                          fill="rgba(211,255,242,0.75)"
-                          fontSize={10}
-                          fontFamily="JetBrains Mono, monospace"
-                          letterSpacing="0.12em"
-                          style={{ textTransform: "uppercase" }}
+                      {
+                        label: "USA",
+                        longitude: -98,
+                        latitude: 38,
+                      },
+                      {
+                        label: "CANADA",
+                        longitude: -95,
+                        latitude: 60,
+                      },
+                      {
+                        label: "BRAZIL",
+                        longitude: -52,
+                        latitude: -10,
+                      },
+                      {
+                        label: "UK",
+                        longitude: -2,
+                        latitude: 54,
+                      },
+                      {
+                        label: "FRANCE",
+                        longitude: 2,
+                        latitude: 46,
+                      },
+                      {
+                        label: "GERMANY",
+                        longitude: 10,
+                        latitude: 51,
+                      },
+                      {
+                        label: "SPAIN",
+                        longitude: -4,
+                        latitude: 40,
+                      },
+                      {
+                        label: "RUSSIA",
+                        longitude: 85,
+                        latitude: 61,
+                      },
+                      {
+                        label: "INDIA",
+                        longitude: 78,
+                        latitude: 22,
+                      },
+                      {
+                        label: "CHINA",
+                        longitude: 104,
+                        latitude: 35,
+                      },
+                      {
+                        label: "JAPAN",
+                        longitude: 138,
+                        latitude: 36,
+                      },
+                      {
+                        label: "AUSTRALIA",
+                        longitude: 133,
+                        latitude: -25,
+                      },
+                      {
+                        label: "SOUTH AFRICA",
+                        longitude: 24,
+                        latitude: -30,
+                      },
+                      {
+                        label: "EGYPT",
+                        longitude: 30,
+                        latitude: 27,
+                      },
+                    ].map(
+                      ({
+                        label,
+                        longitude,
+                        latitude,
+                      }) => (
+                        <Marker
+                          key={label}
+                          coordinates={toCoordinates(
+                            longitude,
+                            latitude,
+                          )}
                         >
-                          {label}
-                        </text>
-                      </Marker>
-                    ))}
+                          <text
+                            textAnchor="middle"
+                            y={-8}
+                            fill="rgba(211,255,242,0.75)"
+                            fontSize={10}
+                            fontFamily="JetBrains Mono, monospace"
+                            letterSpacing="0.12em"
+                            style={{
+                              textTransform:
+                                "uppercase",
+                            }}
+                          >
+                            {label}
+                          </text>
+                        </Marker>
+                      ),
+                    )}
                   </>
                 )}
               </ComposableMap>
             </div>
 
+            {/* Country information */}
+
             {(hoveredCountry || selectedCountry) && (
               <div className="pointer-events-none absolute left-4 top-4 z-20 w-64 rounded border border-border bg-[#071712]/90 p-3 shadow-2xl shadow-radar/10 backdrop-blur-md">
-                <div className="hud-label mb-1 text-[9px] text-radar">Country</div>
-                <div className="text-sm font-semibold text-foreground">{hoveredCountry ?? selectedCountry}</div>
+
+                <div className="hud-label mb-1 text-[9px] text-radar">
+                  Country
+                </div>
+
+                <div className="text-sm font-semibold text-foreground">
+                  {hoveredCountry ??
+                    selectedCountry}
+                </div>
+
                 <div className="mt-3 grid grid-cols-2 gap-2 text-[10px] text-muted-foreground">
+
                   <div>
-                    <div className="hud-label text-[8px]">AIRSPACE STATUS</div>
+                    <div className="hud-label text-[8px]">
+                      AIRSPACE STATUS
+                    </div>
+
                     <div className="mt-1 text-foreground">
-                      {(hoveredCountry ? countryMetrics.get(hoveredCountry) : selectedCountryMetrics)?.airspaceStatus ?? "Secure"}
+                      {(
+                        hoveredCountry
+                          ? countryMetrics.get(
+                              hoveredCountry,
+                            )
+                          : selectedCountryMetrics
+                      )?.airspaceStatus ??
+                        "Secure"}
                     </div>
                   </div>
+
                   <div>
-                    <div className="hud-label text-[8px]">ACTIVE DETECTIONS</div>
+                    <div className="hud-label text-[8px]">
+                      ACTIVE DETECTIONS
+                    </div>
+
                     <div className="mt-1 text-foreground">
-                      {(hoveredCountry ? countryMetrics.get(hoveredCountry) : selectedCountryMetrics)?.activeDetections ?? 0}
+                      {(
+                        hoveredCountry
+                          ? countryMetrics.get(
+                              hoveredCountry,
+                            )
+                          : selectedCountryMetrics
+                      )?.activeDetections ??
+                        0}
                     </div>
                   </div>
+
                   <div>
-                    <div className="hud-label text-[8px]">RADAR COVERAGE</div>
+                    <div className="hud-label text-[8px]">
+                      RADAR COVERAGE
+                    </div>
+
                     <div className="mt-1 text-foreground">
-                      {(hoveredCountry ? countryMetrics.get(hoveredCountry) : selectedCountryMetrics)?.radarCoverage ?? 94.1}%
+                      {(
+                        hoveredCountry
+                          ? countryMetrics.get(
+                              hoveredCountry,
+                            )
+                          : selectedCountryMetrics
+                      )?.radarCoverage ??
+                        94.1}
+                      %
                     </div>
                   </div>
+
                   <div>
-                    <div className="hud-label text-[8px]">THREAT LEVEL</div>
+                    <div className="hud-label text-[8px]">
+                      THREAT LEVEL
+                    </div>
+
                     <div className="mt-1 text-foreground">
-                      {(hoveredCountry ? countryMetrics.get(hoveredCountry) : selectedCountryMetrics)?.threatLevel ?? "LOW"}
+                      {(
+                        hoveredCountry
+                          ? countryMetrics.get(
+                              hoveredCountry,
+                            )
+                          : selectedCountryMetrics
+                      )?.threatLevel ??
+                        "LOW"}
                     </div>
                   </div>
+
                 </div>
               </div>
             )}
           </div>
         </GlassPanel>
 
-        <GlassPanel hover={false} className="space-y-4">
+        {/* ------------------------------------------------------------------ */}
+        {/* RIGHT PANEL                                                         */}
+        {/* ------------------------------------------------------------------ */}
+
+        <GlassPanel
+          hover={false}
+          className="space-y-4"
+        >
           <div className="flex items-center gap-2">
             <Crosshair className="size-4 text-radar" />
-            <p className="hud-label">Global airspace</p>
+
+            <p className="hud-label">
+              Global airspace
+            </p>
           </div>
 
           <div className="grid gap-2 text-sm">
-            <div className="flex justify-between"><span className="text-muted-foreground">Threat Level</span><span className="font-mono text-warn">HIGH</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">Active Tracks</span><span className="font-mono text-radar"><Counter value={detectionTotal} /></span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">Critical</span><span className="font-mono text-threat"><Counter value={criticalCount} /></span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">Radar Coverage</span><span className="font-mono text-cyan">{coverage.toFixed(1)}%</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">AI Confidence</span><span className="font-mono text-radar">97.4%</span></div>
+
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">
+                Threat Level
+              </span>
+
+              <span className="font-mono text-warn">
+                HIGH
+              </span>
+            </div>
+
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">
+                Active Tracks
+              </span>
+
+              <span className="font-mono text-radar">
+                <Counter value={detectionTotal} />
+              </span>
+            </div>
+
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">
+                Critical
+              </span>
+
+              <span className="font-mono text-threat">
+                <Counter value={criticalCount} />
+              </span>
+            </div>
+
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">
+                Radar Coverage
+              </span>
+
+              <span className="font-mono text-cyan">
+                {coverage.toFixed(1)}%
+              </span>
+            </div>
+
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">
+                AI Confidence
+              </span>
+
+              <span className="font-mono text-radar">
+                97.4%
+              </span>
+            </div>
+
           </div>
 
+          {/* Active regions */}
+
           <div className="rounded border border-border bg-background/25 p-3">
-            <p className="hud-label mb-3 text-[10px]">Top active regions</p>
+
+            <p className="hud-label mb-3 text-[10px]">
+              Top active regions
+            </p>
+
             <div className="space-y-2 text-sm">
-              {ACTIVE_REGIONS.map((region, index) => (
-                <div key={region.name} className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono text-muted-foreground">{index + 1}.</span>
-                    <span>{region.name}</span>
+
+              {ACTIVE_REGIONS.map(
+                (region, index) => (
+                  <div
+                    key={region.name}
+                    className="flex items-center justify-between gap-3"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-muted-foreground">
+                        {index + 1}.
+                      </span>
+
+                      <span>
+                        {region.name}
+                      </span>
+                    </div>
+
+                    <span className="font-mono text-radar">
+                      {region.detections}
+                    </span>
                   </div>
-                  <span className="font-mono text-radar">{region.detections}</span>
-                </div>
-              ))}
+                ),
+              )}
+
             </div>
           </div>
 
+          {/* Country intelligence */}
+
           <div className="rounded border border-border bg-background/25 p-3">
-            <p className="hud-label mb-3 text-[10px]">Country intelligence</p>
+
+            <p className="hud-label mb-3 text-[10px]">
+              Country intelligence
+            </p>
+
             <div className="space-y-3 text-xs">
+
               <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Country</span>
-                <span className="font-semibold text-foreground">{selectedCountry}</span>
+                <span className="text-muted-foreground">
+                  Country
+                </span>
+
+                <span className="font-semibold text-foreground">
+                  {selectedCountry}
+                </span>
               </div>
+
               <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Threat Level</span>
-                <span className="font-mono text-warn">{selectedCountryMetrics.threatLevel}</span>
+                <span className="text-muted-foreground">
+                  Threat Level
+                </span>
+
+                <span className="font-mono text-warn">
+                  {
+                    selectedCountryMetrics.threatLevel
+                  }
+                </span>
               </div>
+
               <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Active Detections</span>
-                <span className="font-mono text-radar">{selectedCountryMetrics.activeDetections}</span>
+                <span className="text-muted-foreground">
+                  Active Detections
+                </span>
+
+                <span className="font-mono text-radar">
+                  {
+                    selectedCountryMetrics.activeDetections
+                  }
+                </span>
               </div>
+
               <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Radar Stations</span>
-                <span className="font-mono text-cyan">{selectedCountryMetrics.radarStations}</span>
+                <span className="text-muted-foreground">
+                  Radar Stations
+                </span>
+
+                <span className="font-mono text-cyan">
+                  {
+                    selectedCountryMetrics.radarStations
+                  }
+                </span>
               </div>
+
               <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Protected Zones</span>
-                <span className="font-mono text-cyan">{selectedCountryMetrics.protectedZones}</span>
+                <span className="text-muted-foreground">
+                  Protected Zones
+                </span>
+
+                <span className="font-mono text-cyan">
+                  {
+                    selectedCountryMetrics.protectedZones
+                  }
+                </span>
               </div>
+
               <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Coverage</span>
-                <span className="font-mono text-radar">{selectedCountryMetrics.radarCoverage}%</span>
+                <span className="text-muted-foreground">
+                  Coverage
+                </span>
+
+                <span className="font-mono text-radar">
+                  {
+                    selectedCountryMetrics.radarCoverage
+                  }%
+                </span>
               </div>
+
               <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Last Updated</span>
-                <span className="font-mono text-foreground">{selectedCountryMetrics.lastUpdated}</span>
+                <span className="text-muted-foreground">
+                  Last Updated
+                </span>
+
+                <span className="font-mono text-foreground">
+                  {
+                    selectedCountryMetrics.lastUpdated
+                  }
+                </span>
               </div>
+
             </div>
           </div>
 
+          {/* Legend */}
+
           <div className="rounded border border-border bg-background/25 p-3">
-            <p className="hud-label mb-2 text-[10px]">Legend</p>
+
+            <p className="hud-label mb-2 text-[10px]">
+              Legend
+            </p>
+
             <div className="space-y-2 text-xs text-muted-foreground">
-              <div className="flex items-center gap-2"><span className="size-2 rounded-full bg-radar" /> Radar Station</div>
-              <div className="flex items-center gap-2"><span className="size-2 rounded-full bg-cyan" /> Protected Zone</div>
-              <div className="flex items-center gap-2"><span className="size-2 rounded-full bg-threat" /> Drone Detection</div>
-              <div className="flex items-center gap-2"><span className="size-2 rounded-full bg-warn" /> Elevated</div>
-              <div className="flex items-center gap-2"><span className="size-2 rounded-full bg-threat" /> High Threat</div>
-              <div className="flex items-center gap-2"><span className="size-2 rounded-full bg-red-500" /> Critical Threat</div>
-              <div className="flex items-center gap-2"><span className="h-px w-6 bg-cyan" /> Flight Path</div>
-              <div className="flex items-center gap-2"><span className="h-px w-6 border border-dashed border-warn" /> Restricted Area</div>
+
+              <div className="flex items-center gap-2">
+                <span className="size-2 rounded-full bg-radar" />
+                Radar Station
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="size-2 rounded-full bg-cyan" />
+                Protected Zone
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="size-2 rounded-full bg-threat" />
+                Drone Detection
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="size-2 rounded-full bg-warn" />
+                Elevated
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="size-2 rounded-full bg-threat" />
+                High Threat
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="size-2 rounded-full bg-red-500" />
+                Critical Threat
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="h-px w-6 bg-cyan" />
+                Flight Path
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="h-px w-6 border border-dashed border-warn" />
+                Restricted Area
+              </div>
+
             </div>
           </div>
         </GlassPanel>
       </div>
 
+      {/* -------------------------------------------------------------------- */}
+      {/* BOTTOM STATISTICS                                                     */}
+      {/* -------------------------------------------------------------------- */}
+
       <div className="mt-4 grid gap-4 md:grid-cols-3">
+
         <GlassPanel hover={false}>
-          <div className="flex items-center gap-2"><Layers3 className="size-4 text-radar" /><p className="hud-label">Active detections</p></div>
-          <p className="mt-3 text-2xl font-semibold"><Counter value={detectionTotal} /></p>
-          <p className="mt-1 text-xs text-muted-foreground">Cross-region surveillance mesh online</p>
+          <div className="flex items-center gap-2">
+            <Layers3 className="size-4 text-radar" />
+
+            <p className="hud-label">
+              Active detections
+            </p>
+          </div>
+
+          <p className="mt-3 text-2xl font-semibold">
+            <Counter value={detectionTotal} />
+          </p>
+
+          <p className="mt-1 text-xs text-muted-foreground">
+            Cross-region surveillance mesh online
+          </p>
         </GlassPanel>
+
         <GlassPanel hover={false}>
-          <div className="flex items-center gap-2"><ShieldAlert className="size-4 text-cyan" /><p className="hud-label">Protected zones</p></div>
-          <p className="mt-3 text-2xl font-semibold"><Counter value={protectedTotal} /></p>
-          <p className="mt-1 text-xs text-muted-foreground">Airports, military, critical infrastructure</p>
+          <div className="flex items-center gap-2">
+            <ShieldAlert className="size-4 text-cyan" />
+
+            <p className="hud-label">
+              Protected zones
+            </p>
+          </div>
+
+          <p className="mt-3 text-2xl font-semibold">
+            <Counter value={protectedTotal} />
+          </p>
+
+          <p className="mt-1 text-xs text-muted-foreground">
+            Airports, military, critical infrastructure
+          </p>
         </GlassPanel>
+
         <GlassPanel hover={false}>
-          <div className="flex items-center gap-2"><RadarIcon className="size-4 text-radar" /><p className="hud-label">Radar coverage</p></div>
-          <p className="mt-3 text-2xl font-semibold">{coverage.toFixed(1)}%</p>
-          <p className="mt-1 text-xs text-muted-foreground">Planetary mesh status nominal</p>
+          <div className="flex items-center gap-2">
+            <RadarIcon className="size-4 text-radar" />
+
+            <p className="hud-label">
+              Radar coverage
+            </p>
+          </div>
+
+          <p className="mt-3 text-2xl font-semibold">
+            {coverage.toFixed(1)}%
+          </p>
+
+          <p className="mt-1 text-xs text-muted-foreground">
+            Planetary mesh status nominal
+          </p>
         </GlassPanel>
+
       </div>
     </PageShell>
   );
