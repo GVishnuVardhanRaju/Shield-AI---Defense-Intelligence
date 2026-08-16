@@ -14,7 +14,7 @@ import {
   Waypoints,
 } from "lucide-react";
 import { useMemo, useState } from "react";
-import { ComposableMap, Geographies, Geography, Line, Marker } from "react-simple-maps";
+import { ComposableMap, Geographies, Geography, Line, Marker } from "@vnedyalk0v/react19-simple-maps";
 
 import { Counter, GlassPanel, PageShell, SectionHeading, StatusDot } from "@/components/shield/primitives";
 import { AIRPORTS } from "@/data/airports";
